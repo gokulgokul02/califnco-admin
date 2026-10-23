@@ -25,7 +25,7 @@ import {
   Check,
   X,
   Search,
-  DollarSign,
+  IndianRupee,
   Package,
   Plus,
   Trash2,
@@ -1125,7 +1125,7 @@ function App() {
         {/* KPI Overview Cards */}
         <div className="kpi-grid">
           <div className="kpi-card">
-            <div className="kpi-icon money"><DollarSign size={22} /></div>
+            <div className="kpi-icon money"><IndianRupee size={22} /></div>
             <div className="kpi-info">
               <span className="kpi-label">Total Revenue</span>
               <span className="kpi-value">{money(totalRevenue)}</span>
@@ -1166,35 +1166,8 @@ function App() {
               </div>
 
               <div className="panel-header-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                {/* Category-Wise Seeder Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', padding: '4px 8px', borderRadius: 8, border: '1px solid #cbd5e1' }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: '#475569' }}>Seed Category:</span>
-                  <select
-                    value={selectedCategoryToSeed}
-                    onChange={e => setSelectedCategoryToSeed(e.target.value)}
-                    style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontWeight: 600, color: '#0f172a' }}
-                  >
-                    <option value="ALL">📦 All Categories ({initialProducts.length} Products)</option>
-                    {initialCategories.map(cat => {
-                      const count = initialProducts.filter(p => p.category === cat.name).length;
-                      return <option key={cat.id} value={cat.name}>{cat.name} ({count} items)</option>;
-                    })}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    style={{ padding: '6px 12px', fontSize: 12 }}
-                    onClick={() => handleSeedProductsByCategory(selectedCategoryToSeed)}
-                    disabled={isSeeding}
-                    title="Seed selected category products into Firestore"
-                  >
-                    <RefreshCw size={13} className={isSeeding ? 'spin' : ''} />
-                    <span>{isSeeding ? 'Seeding...' : `🚀 Seed ${selectedCategoryToSeed === 'ALL' ? `All (${initialProducts.length})` : selectedCategoryToSeed}`}</span>
-                  </button>
-                </div>
-
                 <button
-                  className="btn-secondary"
+                  className="btn-primary"
                   onClick={() => setShowAddModal(true)}
                 >
                   <Plus size={15} />
@@ -1234,17 +1207,16 @@ function App() {
                 <div className="empty-state-icon"><Package size={42} color="#087f8c" /></div>
                 <h3 style={{ margin: '14px 0 8px', color: '#091322' }}>Catalog is Currently Empty</h3>
                 <p style={{ maxWidth: 520, margin: '0 auto 20px', color: '#64748b', fontSize: 14, lineHeight: 1.6 }}>
-                  Existing catalog products have been cleared. Click below to immediately seed all <strong>55 realistic Califnco products</strong> across the <strong>9 standard categories</strong> into your live Firestore database.
+                  No products are currently available in the catalog. Click below to add new equipment models, filters, or spare parts.
                 </p>
                 <button
                   type="button"
                   className="btn-primary"
-                  style={{ padding: '12px 26px', fontSize: 14, fontWeight: 700, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                  onClick={() => handleSeedProductsByCategory('ALL')}
-                  disabled={isSeeding}
+                  style={{ padding: '10px 22px', fontSize: 13, fontWeight: 700, borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => setShowAddModal(true)}
                 >
-                  <RefreshCw size={16} className={isSeeding ? 'spin' : ''} />
-                  <span>{isSeeding ? 'Seeding 55 Products into Firestore...' : '⚡ Seed All 55 Products & 9 Categories Now'}</span>
+                  <Plus size={16} />
+                  <span>+ Add New Product</span>
                 </button>
               </div>
             ) : (
@@ -1352,29 +1324,6 @@ function App() {
                 <button
                   type="button"
                   className="btn-primary"
-                  style={{ background: 'linear-gradient(135deg, #024950 0%, #087f8c 100%)' }}
-                  onClick={() => handleSeedProductsByCategory('ALL')}
-                  disabled={isSeeding}
-                  title="Seed all 55 products and 9 categories in one click into Firestore"
-                >
-                  <Package size={14} className={isSeeding ? 'spin' : ''} />
-                  <span>{isSeeding ? 'Seeding...' : '⚡ Seed All 55 Products & 9 Categories'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleSeedCategories}
-                  disabled={isSeeding}
-                  title="Initialize 9 default equipment categories in Firestore"
-                >
-                  <RefreshCw size={14} className={isSeeding ? 'spin' : ''} />
-                  <span>{isSeeding ? 'Syncing...' : '⚡ Seed 9 Standard Categories'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="btn-secondary"
                   onClick={() => setShowAddCategoryModal(true)}
                 >
                   <FolderPlus size={15} />
@@ -1388,10 +1337,10 @@ function App() {
                 <div className="empty-state-icon"><Layers size={36} color="#087f8c" /></div>
                 <h4>No Categories in Database Yet</h4>
                 <p style={{ maxWidth: 500, margin: '8px auto 16px', color: '#64748b' }}>
-                  Click <strong>"⚡ Seed 9 Standard Categories"</strong> to write RO Purifiers, UV, Dispensers, Pumps, and Filters into your Firestore <code>categories</code> collection, or add custom ones.
+                  No categories are currently defined in Firestore. Click below to add a new product category.
                 </p>
-                <button className="btn-primary" onClick={handleSeedCategories} disabled={isSeeding}>
-                  Seed Standard Categories Now
+                <button className="btn-primary" onClick={() => setShowAddCategoryModal(true)}>
+                  + Add Category Now
                 </button>
               </div>
             ) : (
@@ -1403,14 +1352,12 @@ function App() {
                       <th>Slug / Identifier</th>
                       <th>Description</th>
                       <th>Products Live</th>
-                      <th>Category Seeder</th>
                       <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {categories.map(cat => {
                       const prodCount = products.filter(p => p.category === cat.name).length;
-                      const initialCount = initialProducts.filter(p => p.category === cat.name).length;
                       return (
                         <tr key={cat.id}>
                           <td>
@@ -1433,19 +1380,6 @@ function App() {
                             <span className={`badge ${prodCount > 0 ? 'badge-success' : 'badge-slate'}`}>
                               {prodCount} in Catalog
                             </span>
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              className="btn-outline"
-                              style={{ fontSize: 11, padding: '4px 10px', color: '#087f8c', borderColor: '#087f8c', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              onClick={() => handleSeedProductsByCategory(cat.name)}
-                              disabled={isSeeding}
-                              title={`Seed catalog items for ${cat.name} into Firestore`}
-                            >
-                              <RefreshCw size={11} className={isSeeding ? 'spin' : ''} />
-                              <span>Seed {cat.name} ({initialCount})</span>
-                            </button>
                           </td>
                           <td>
                             <button
@@ -1971,75 +1905,81 @@ function App() {
             </div>
 
             <form onSubmit={handleSaveRazorpay} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-              {/* Test Keys Section */}
-              <div style={{ border: '1.5px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{
-                  background: razorpayMode === 'test' ? '#fffbeb' : '#f8fafc',
-                  borderBottom: '1px solid #e2e8f0',
-                  padding: '12px 20px',
-                  display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14,
-                  color: razorpayMode === 'test' ? '#92400e' : '#64748b',
-                }}>
-                  <Key size={15} />
-                  TEST API Keys
-                  {razorpayMode === 'test' && <span className="badge badge-warning" style={{ marginLeft: 8 }}>Active</span>}
-                </div>
-                <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label>Test Key ID <small style={{ color: '#64748b', fontWeight: 400 }}>(starts with rzp_test_)</small></label>
-                    <input
-                      type="text"
-                      placeholder="rzp_test_xxxxxxxxxxxxx"
-                      value={razorpayTestKey}
-                      onChange={e => setRazorpayTestKey(e.target.value)}
-                    />
+              {/* Test Keys Section - Only shown when in Test mode */}
+              {razorpayMode === 'test' && (
+                <div style={{ border: '1.5px solid #fde68a', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{
+                    background: '#fffbeb',
+                    borderBottom: '1px solid #fde68a',
+                    padding: '12px 20px',
+                    display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14,
+                    color: '#92400e',
+                  }}>
+                    <Key size={15} />
+                    TEST API Keys
+                    <span className="badge badge-warning" style={{ marginLeft: 8 }}>Active</span>
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label>Test Key Secret <small style={{ color: '#64748b', fontWeight: 400 }}>(keep confidential)</small></label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••••••••••••••"
-                      value={razorpayTestSecret}
-                      onChange={e => setRazorpayTestSecret(e.target.value)}
-                    />
+                  <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Test Key ID <small style={{ color: '#64748b', fontWeight: 400 }}>(starts with rzp_test_)</small></label>
+                      <input
+                        type="text"
+                        placeholder="rzp_test_xxxxxxxxxxxxx"
+                        value={razorpayTestKey}
+                        onChange={e => setRazorpayTestKey(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Test Key Secret <small style={{ color: '#64748b', fontWeight: 400 }}>(keep confidential)</small></label>
+                      <input
+                        type="password"
+                        placeholder="••••••••••••••••••••••••"
+                        value={razorpayTestSecret}
+                        onChange={e => setRazorpayTestSecret(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Live Keys Section */}
-              <div style={{ border: '1.5px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{
-                  background: razorpayMode === 'live' ? '#fef2f2' : '#f8fafc',
-                  borderBottom: '1px solid #e2e8f0',
-                  padding: '12px 20px',
-                  display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14,
-                  color: razorpayMode === 'live' ? '#b91c1c' : '#64748b',
-                }}>
-                  <ShieldCheck size={15} />
-                  LIVE API Keys
-                  {razorpayMode === 'live' && <span className="badge badge-danger" style={{ marginLeft: 8 }}>Active</span>}
-                </div>
-                <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label>Live Key ID <small style={{ color: '#64748b', fontWeight: 400 }}>(starts with rzp_live_)</small></label>
-                    <input
-                      type="text"
-                      placeholder="rzp_live_xxxxxxxxxxxxx"
-                      value={razorpayLiveKey}
-                      onChange={e => setRazorpayLiveKey(e.target.value)}
-                    />
+              {/* Live Keys Section - Only shown when in Live mode */}
+              {razorpayMode === 'live' && (
+                <div style={{ border: '1.5px solid #fecaca', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{
+                    background: '#fef2f2',
+                    borderBottom: '1px solid #fecaca',
+                    padding: '12px 20px',
+                    display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 14,
+                    color: '#b91c1c',
+                  }}>
+                    <ShieldCheck size={15} />
+                    LIVE API Keys
+                    <span className="badge badge-danger" style={{ marginLeft: 8 }}>Active</span>
                   </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label>Live Key Secret <small style={{ color: '#64748b', fontWeight: 400 }}>(keep confidential — never share)</small></label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••••••••••••••"
-                      value={razorpayLiveSecret}
-                      onChange={e => setRazorpayLiveSecret(e.target.value)}
-                    />
+                  <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Live Key ID <small style={{ color: '#64748b', fontWeight: 400 }}>(starts with rzp_live_)</small></label>
+                      <input
+                        type="text"
+                        placeholder="rzp_live_xxxxxxxxxxxxx"
+                        value={razorpayLiveKey}
+                        onChange={e => setRazorpayLiveKey(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Live Key Secret <small style={{ color: '#64748b', fontWeight: 400 }}>(keep confidential — never share)</small></label>
+                      <input
+                        type="password"
+                        placeholder="••••••••••••••••••••••••"
+                        value={razorpayLiveSecret}
+                        onChange={e => setRazorpayLiveSecret(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                 <button
