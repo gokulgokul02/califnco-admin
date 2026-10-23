@@ -8,6 +8,7 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  getDocs,
   updateDoc,
   setDoc,
   deleteDoc,
@@ -74,42 +75,54 @@ const db = getFirestore(app);
 // Works even when app is killed / dead state on device.
 // Requires FIREBASE_SERVICE_ACCOUNT_JSON set in Vercel environment variables.
 const sendFcmPush = async (fcmToken, title, body, data = {}) => {
-  if (!fcmToken) return;
+  if (!fcmToken) {
+    console.warn('[FCM Push] No token provided for push alert');
+    return;
+  }
   try {
-    // In development (localhost), skip — only works when deployed on Vercel
+    // In development (localhost), fallback to deployed Vercel function
     const apiBase = window.location.hostname === 'localhost'
-      ? null
+      ? 'https://califnco-admin.vercel.app'
       : window.location.origin;
-    if (!apiBase) return;
 
-    await fetch(`${apiBase}/api/send-notification`, {
+    const res = await fetch(`${apiBase}/api/send-notification`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: fcmToken, title, body, data }),
     });
+    const result = await res.json();
+    console.log('[FCM Push] Response:', result);
   } catch (err) {
     console.warn('[FCM Vercel] Push error:', err.message);
   }
 };
 
-// Get a user's saved FCM token from Firestore
+// Get a user's saved FCM token from Firestore (checks both users and technicianApplications)
 const getUserFcmToken = async (uid) => {
   if (!uid || uid === 'all' || !db) return null;
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
-    return userDoc.exists() ? (userDoc.data().fcmToken || null) : null;
+    if (userDoc.exists() && userDoc.data().fcmToken) {
+      return userDoc.data().fcmToken;
+    }
+    const techDoc = await getDoc(doc(db, 'technicianApplications', uid));
+    if (techDoc.exists() && techDoc.data().fcmToken) {
+      return techDoc.data().fcmToken;
+    }
+    return null;
   } catch (e) {
+    console.warn('[getUserFcmToken] Error:', e);
     return null;
   }
 };
 
 // ── PUSH NOTIFICATION DISPATCHER ───────────────────────────────────────────
 // 1. Writes Firestore doc (picked up by in-app stream when app is FOREGROUND)
-// 2. Calls FCM HTTP API directly for BACKGROUND + DEAD state delivery
+// 2. Calls FCM v1 API directly for BACKGROUND + DEAD / KILLED state delivery
 const sendPushNotification = async ({ userId = 'all', title, message, type = 'system', metadata = {} }) => {
   if (!db) return;
   try {
-    // Write to Firestore (in-app foreground delivery)
+    // 1. Write to Firestore (in-app foreground delivery)
     await addDoc(collection(db, 'notifications'), {
       userId,
       title,
@@ -121,11 +134,42 @@ const sendPushNotification = async ({ userId = 'all', title, message, type = 'sy
       createdAt: serverTimestamp(),
     });
 
-    // Direct FCM push (background + dead state delivery)
-    if (userId !== 'all') {
+    // 2. Direct FCM push (background + dead state delivery)
+    if (userId && userId !== 'all' && userId !== 'dealers' && userId !== 'customers') {
       const token = await getUserFcmToken(userId);
       if (token) {
         await sendFcmPush(token, title, message, { type, ...metadata });
+      } else {
+        console.warn(`[FCM] No token found for user: ${userId}`);
+      }
+    } else {
+      // Broadcast to all registered devices with an FCM token
+      try {
+        const tokens = new Set();
+
+        const usersSnap = await getDocs(collection(db, 'users'));
+        usersSnap.forEach(docSnap => {
+          const d = docSnap.data();
+          if (userId === 'dealers' && d.role !== 'dealer') return;
+          if (userId === 'customers' && d.role !== 'customer') return;
+          if (d.fcmToken) tokens.add(d.fcmToken);
+        });
+
+        // Also collect technician tokens if broadcast is for all
+        if (userId === 'all') {
+          const techSnap = await getDocs(collection(db, 'technicianApplications'));
+          techSnap.forEach(docSnap => {
+            const d = docSnap.data();
+            if (d.fcmToken) tokens.add(d.fcmToken);
+          });
+        }
+
+        console.log(`[FCM Broadcast] Found ${tokens.size} registered device token(s) to send alert to.`);
+        for (const token of tokens) {
+          sendFcmPush(token, title, message, { type, ...metadata });
+        }
+      } catch (err) {
+        console.warn('[FCM Broadcast] Error fetching device tokens:', err);
       }
     }
   } catch (err) {
@@ -688,14 +732,28 @@ function App() {
           updatedAt: serverTimestamp(),
         });
 
-        // Send Push Alert to Customer
-        await sendPushNotification({
-          userId: targetService?.customerId || 'all',
-          title: `Service Technician Assigned: ${techName}`,
-          message: `Engineer ${techName} (${tech?.phone}) is assigned for your ${targetService?.serviceType || 'RO Service'}.`,
-          type: 'service',
-          metadata: { serviceId, technician: techName },
-        });
+        // 1. Send Push Alert to Customer
+        if (targetService?.customerId && targetService.customerId !== 'guest') {
+          await sendPushNotification({
+            userId: targetService.customerId,
+            title: `Service Technician Assigned: ${techName}`,
+            message: `Engineer ${techName} (${tech?.phone || 'Field Engineer'}) is assigned for your ${targetService?.serviceType || 'RO Service'}.`,
+            type: 'service',
+            metadata: { serviceId, technician: techName },
+          });
+        }
+
+        // 2. Send Push Alert to Assigned Technician
+        const techUserId = tech?.id || tech?.userId;
+        if (techUserId) {
+          await sendPushNotification({
+            userId: techUserId,
+            title: `🛠️ New Service Job Assigned!`,
+            message: `You are assigned to ticket #${serviceId.slice(0, 6).toUpperCase()} (${targetService?.serviceType || 'RO Service'}). Location: ${targetService?.address || 'Customer site'}.`,
+            type: 'service',
+            metadata: { serviceId, customerName: targetService?.customerName || '' },
+          });
+        }
 
         showToast(`Technician ${techName} assigned & Push alert sent!`);
       } catch (e) {
