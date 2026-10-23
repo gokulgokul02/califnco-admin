@@ -397,6 +397,24 @@ function App() {
   const [broadcastBody, setBroadcastBody] = useState('');
   const [broadcastTarget, setBroadcastTarget] = useState('all');
 
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // ImgBB CDN Upload Helper
+  const IMGBB_KEY = 'c7757c5488930442cca28920d221fbd5';
+  const uploadImageToImgbb = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.success && data.data?.url) {
+      return data.data.url;
+    }
+    throw new Error(data.error?.message || 'ImgBB upload failed');
+  };
+
   // Add product form state
   const [newProdName, setNewProdName] = useState('');
   const [newProdCategory, setNewProdCategory] = useState('RO Purifier');
@@ -1156,7 +1174,7 @@ function App() {
                     onChange={e => setSelectedCategoryToSeed(e.target.value)}
                     style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontWeight: 600, color: '#0f172a' }}
                   >
-                    <option value="ALL">📦 All Categories (52 Items)</option>
+                    <option value="ALL">📦 All Categories ({initialProducts.length} Products)</option>
                     {initialCategories.map(cat => {
                       const count = initialProducts.filter(p => p.category === cat.name).length;
                       return <option key={cat.id} value={cat.name}>{cat.name} ({count} items)</option>;
@@ -1171,7 +1189,7 @@ function App() {
                     title="Seed selected category products into Firestore"
                   >
                     <RefreshCw size={13} className={isSeeding ? 'spin' : ''} />
-                    <span>{isSeeding ? 'Seeding...' : `🚀 Seed ${selectedCategoryToSeed === 'ALL' ? 'All (52)' : selectedCategoryToSeed}`}</span>
+                    <span>{isSeeding ? 'Seeding...' : `🚀 Seed ${selectedCategoryToSeed === 'ALL' ? `All (${initialProducts.length})` : selectedCategoryToSeed}`}</span>
                   </button>
                 </div>
 
@@ -1210,87 +1228,115 @@ function App() {
               </div>
             </div>
 
-            {/* Products Table */}
-            <div className="table-responsive" style={{ marginTop: 14 }}>
-              <table className="enterprise-table">
-                <thead>
-                  <tr>
-                    <th>Product Model</th>
-                    <th>Category</th>
-                    <th>Customer Price</th>
-                    <th>Dealer Wholesale</th>
-                    <th>Stock</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProducts.map(p => (
-                    <tr key={p.id}>
-                      <td>
-                        <div className="product-cell">
-                          <img
-                            src={p.imageUrl}
-                            alt={p.name}
-                            className="product-thumb"
-                            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1585672840545-be5e76a6d654?auto=format&fit=crop&w=400&q=80'; }}
-                          />
-                          <div>
-                            <div className="product-title">{p.name}</div>
-                            <div className="product-desc">{p.description}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="badge badge-info">{p.category}</span>
-                      </td>
-                      <td>
-                        <span className="price-customer">{money(p.price)}</span>
-                      </td>
-                      <td>
-                        <span className="price-dealer">{money(p.wholesalePrice)}</span>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="stock-input"
-                          value={p.stock ?? 50}
-                          onChange={e => updateProductField(p.id, 'stock', parseInt(e.target.value) || 0)}
-                        />
-                      </td>
-                      <td>
-                        <button
-                          className={`badge ${p.active !== false ? 'badge-success' : 'badge-slate'}`}
-                          style={{ border: 0, cursor: 'pointer' }}
-                          onClick={() => updateProductField(p.id, 'active', p.active === false)}
-                          title="Toggle customer visibility"
-                        >
-                          {p.active !== false ? 'Active' : 'Hidden'}
-                        </button>
-                      </td>
-                      <td>
-                        <div className="actions-cell">
-                          <button
-                            className="btn-icon edit"
-                            onClick={() => handleOpenEdit(p)}
-                            title="Edit product details, price & photo"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                          <button
-                            className="btn-icon delete"
-                            onClick={() => deleteProduct(p.id)}
-                            title="Delete product"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
+            {/* Products Table or Empty State */}
+            {products.length === 0 ? (
+              <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center' }}>
+                <div className="empty-state-icon"><Package size={42} color="#087f8c" /></div>
+                <h3 style={{ margin: '14px 0 8px', color: '#091322' }}>Catalog is Currently Empty</h3>
+                <p style={{ maxWidth: 520, margin: '0 auto 20px', color: '#64748b', fontSize: 14, lineHeight: 1.6 }}>
+                  Existing catalog products have been cleared. Click below to immediately seed all <strong>55 realistic Califnco products</strong> across the <strong>9 standard categories</strong> into your live Firestore database.
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ padding: '12px 26px', fontSize: 14, fontWeight: 700, borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                  onClick={() => handleSeedProductsByCategory('ALL')}
+                  disabled={isSeeding}
+                >
+                  <RefreshCw size={16} className={isSeeding ? 'spin' : ''} />
+                  <span>{isSeeding ? 'Seeding 55 Products into Firestore...' : '⚡ Seed All 55 Products & 9 Categories Now'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="table-responsive" style={{ marginTop: 14 }}>
+                <table className="enterprise-table">
+                  <thead>
+                    <tr>
+                      <th>Product Model</th>
+                      <th>Category</th>
+                      <th>Customer Price</th>
+                      <th>Dealer Wholesale</th>
+                      <th>Stock</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b' }}>
+                          No products match your search or filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredProducts.map(p => (
+                        <tr key={p.id}>
+                          <td>
+                            <div className="product-cell">
+                              <img
+                                src={p.imageUrl}
+                                alt={p.name}
+                                className="product-thumb"
+                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1585672840545-be5e76a6d654?auto=format&fit=crop&w=400&q=80'; }}
+                              />
+                              <div>
+                                <div className="product-title">{p.name}</div>
+                                <div className="product-desc">{p.description}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge badge-info">{p.category}</span>
+                          </td>
+                          <td>
+                            <span className="price-customer">{money(p.price)}</span>
+                          </td>
+                          <td>
+                            <span className="price-dealer">{money(p.wholesalePrice)}</span>
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              className="stock-input"
+                              value={p.stock ?? 50}
+                              onChange={e => updateProductField(p.id, 'stock', parseInt(e.target.value) || 0)}
+                            />
+                          </td>
+                          <td>
+                            <button
+                              className={`badge ${p.active !== false ? 'badge-success' : 'badge-slate'}`}
+                              style={{ border: 0, cursor: 'pointer' }}
+                              onClick={() => updateProductField(p.id, 'active', p.active === false)}
+                              title="Toggle customer visibility"
+                            >
+                              {p.active !== false ? 'Active' : 'Hidden'}
+                            </button>
+                          </td>
+                          <td>
+                            <div className="actions-cell">
+                              <button
+                                className="btn-icon edit"
+                                onClick={() => handleOpenEdit(p)}
+                                title="Edit product details, price & photo"
+                              >
+                                <Edit3 size={16} />
+                              </button>
+                              <button
+                                className="btn-icon delete"
+                                onClick={() => deleteProduct(p.id)}
+                                title="Delete product"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -1306,6 +1352,18 @@ function App() {
                 <button
                   type="button"
                   className="btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #024950 0%, #087f8c 100%)' }}
+                  onClick={() => handleSeedProductsByCategory('ALL')}
+                  disabled={isSeeding}
+                  title="Seed all 55 products and 9 categories in one click into Firestore"
+                >
+                  <Package size={14} className={isSeeding ? 'spin' : ''} />
+                  <span>{isSeeding ? 'Seeding...' : '⚡ Seed All 55 Products & 9 Categories'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-secondary"
                   onClick={handleSeedCategories}
                   disabled={isSeeding}
                   title="Initialize 9 default equipment categories in Firestore"
@@ -2120,26 +2178,39 @@ function App() {
 
                 {/* Direct Image Upload from Device */}
                 <div className="form-group">
-                  <label>Product Photo (Upload File or Paste URL) *</label>
+                  <label>Product Photo (ImgBB CDN Upload or Image URL) *</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div className="file-dropzone">
+                    <div className="file-dropzone" style={{ opacity: isUploadingImage ? 0.7 : 1 }}>
                       <input
                         type="file"
                         id="add-file-input"
                         accept="image/*"
+                        disabled={isUploadingImage}
                         style={{ display: 'none' }}
-                        onChange={e => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => setNewProdImage(reader.result);
-                            reader.readAsDataURL(file);
+                            try {
+                              setIsUploadingImage(true);
+                              showToast('Uploading photo to ImgBB CDN...');
+                              const cdnUrl = await uploadImageToImgbb(file);
+                              setNewProdImage(cdnUrl);
+                              showToast('✓ Photo uploaded to ImgBB CDN successfully!');
+                            } catch (err) {
+                              console.error('ImgBB upload error:', err);
+                              const reader = new FileReader();
+                              reader.onloadend = () => setNewProdImage(reader.result);
+                              reader.readAsDataURL(file);
+                              showToast('Uploaded locally (ImgBB note: ' + err.message + ')');
+                            } finally {
+                              setIsUploadingImage(false);
+                            }
                           }
                         }}
                       />
-                      <label htmlFor="add-file-input" className="file-dropzone-content">
-                        <Upload size={18} />
-                        <span>Click to upload photo from your device (PNG, JPG, WebP)</span>
+                      <label htmlFor="add-file-input" className="file-dropzone-content" style={{ cursor: isUploadingImage ? 'wait' : 'pointer' }}>
+                        <Upload size={18} className={isUploadingImage ? 'spin' : ''} />
+                        <span>{isUploadingImage ? 'Uploading photo to ImgBB CDN...' : 'Click to upload photo to ImgBB CDN (PNG, JPG, WebP)'}</span>
                       </label>
                     </div>
 
@@ -2162,10 +2233,12 @@ function App() {
                           style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }}
                         />
                         <div style={{ flex: 1 }}>
-                          <span style={{ color: '#087f8c', fontWeight: 700, fontSize: 12 }}>✓ Photo Attached</span>
+                          <span style={{ color: '#087f8c', fontWeight: 700, fontSize: 12 }}>
+                            {newProdImage.includes('ibb.co') ? '✓ Hosted on ImgBB CDN' : '✓ Photo Attached'}
+                          </span>
                           <br />
                           <small style={{ color: '#64748b' }}>
-                            {newProdImage.startsWith('data:') ? 'Local file uploaded' : 'Cloud CDN URL'}
+                            {newProdImage.includes('ibb.co') ? 'ImgBB High-Speed Cloud CDN' : (newProdImage.startsWith('data:') ? 'Local file uploaded' : 'Cloud CDN URL')}
                           </small>
                         </div>
                         <button
@@ -2309,26 +2382,39 @@ function App() {
 
                 {/* Direct Image Upload from Device */}
                 <div className="form-group">
-                  <label>Product Photo (Upload New or Keep Current)</label>
+                  <label>Product Photo (ImgBB CDN Upload or New Image URL)</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div className="file-dropzone">
+                    <div className="file-dropzone" style={{ opacity: isUploadingImage ? 0.7 : 1 }}>
                       <input
                         type="file"
                         id="edit-file-input"
                         accept="image/*"
+                        disabled={isUploadingImage}
                         style={{ display: 'none' }}
-                        onChange={e => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => setEditProdImage(reader.result);
-                            reader.readAsDataURL(file);
+                            try {
+                              setIsUploadingImage(true);
+                              showToast('Uploading photo to ImgBB CDN...');
+                              const cdnUrl = await uploadImageToImgbb(file);
+                              setEditProdImage(cdnUrl);
+                              showToast('✓ Photo uploaded to ImgBB CDN successfully!');
+                            } catch (err) {
+                              console.error('ImgBB upload error:', err);
+                              const reader = new FileReader();
+                              reader.onloadend = () => setEditProdImage(reader.result);
+                              reader.readAsDataURL(file);
+                              showToast('Uploaded locally (ImgBB note: ' + err.message + ')');
+                            } finally {
+                              setIsUploadingImage(false);
+                            }
                           }
                         }}
                       />
-                      <label htmlFor="edit-file-input" className="file-dropzone-content">
-                        <Upload size={18} />
-                        <span>Click to choose new photo from device</span>
+                      <label htmlFor="edit-file-input" className="file-dropzone-content" style={{ cursor: isUploadingImage ? 'wait' : 'pointer' }}>
+                        <Upload size={18} className={isUploadingImage ? 'spin' : ''} />
+                        <span>{isUploadingImage ? 'Uploading photo to ImgBB CDN...' : 'Click to upload photo to ImgBB CDN (PNG, JPG, WebP)'}</span>
                       </label>
                     </div>
 
@@ -2351,10 +2437,12 @@ function App() {
                           style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }}
                         />
                         <div style={{ flex: 1 }}>
-                          <span style={{ color: '#087f8c', fontWeight: 700, fontSize: 12 }}>✓ Current Photo</span>
+                          <span style={{ color: '#087f8c', fontWeight: 700, fontSize: 12 }}>
+                            {editProdImage.includes('ibb.co') ? '✓ Hosted on ImgBB CDN' : '✓ Current Photo'}
+                          </span>
                           <br />
                           <small style={{ color: '#64748b' }}>
-                            {editProdImage.startsWith('data:') ? 'Local file uploaded' : 'Cloud CDN URL'}
+                            {editProdImage.includes('ibb.co') ? 'ImgBB High-Speed Cloud CDN' : (editProdImage.startsWith('data:') ? 'Local file uploaded' : 'Cloud CDN URL')}
                           </small>
                         </div>
                         <button
